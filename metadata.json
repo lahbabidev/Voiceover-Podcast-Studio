@@ -1,0 +1,6 @@
+{
+  "name": "Voiceover & Podcast Studio",
+  "description": "منصة ذكية تحول النص إلى تعليق صوتي إعلاني وبودكاست متزامن بالفصحى والدارجة المغربية والفرنسية والإنجليزية",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
