@@ -228,6 +228,18 @@ export function AudioPlayerCard({ item, onUpdateScriptAndRegenerate, isRegenerat
               <span className="text-amber-400 font-bold">💡 نبرة وإرشاد:</span> {item.phoneticGuide}
             </p>
           )}
+
+          {!item.audioUrl && (
+            <div className="text-xs text-amber-300 mt-3 bg-amber-500/10 border border-amber-500/20 p-3 rounded-xl flex flex-col gap-1.5">
+              <div className="flex items-center gap-1.5 font-bold">
+                <Sparkles className="w-4 h-4 text-amber-400 animate-pulse" />
+                <span>لم يتم توليد المقطع الصوتي بسبب قيود الحصة (Quota Limits)</span>
+              </div>
+              <p className="text-[11px] text-slate-300">
+                الحساب المجاني لـ Gemini يتيح عدداً محدوداً من ثواني الصوت دقيقة بدقيقة. يمكنك توليد هذا المقطع الآن بمفرده بالنقر على <strong>&quot;تعديل النص&quot;</strong> أعلاه ثم <strong>&quot;حفظ وإعادة توليد الصوت لهذا الخيار&quot;</strong>.
+              </p>
+            </div>
+          )}
         </div>
       </div>
 

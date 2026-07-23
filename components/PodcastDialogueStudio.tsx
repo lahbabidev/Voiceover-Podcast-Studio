@@ -17,9 +17,15 @@ export function PodcastDialogueStudio() {
     setLoading(true);
     setResult(null);
     try {
+      const customKey = typeof window !== 'undefined' ? localStorage.getItem('custom_gemini_api_key') : null;
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (customKey) {
+        headers['x-gemini-api-key'] = customKey;
+      }
+
       const res = await fetch('/api/podcast-dialogue', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify({ topic, lang: language }),
       });
       const data = await res.json();

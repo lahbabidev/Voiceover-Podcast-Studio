@@ -1,15 +1,7 @@
 import { GoogleGenAI, Modality, Type } from '@google/genai';
 import { NextRequest, NextResponse } from 'next/server';
 import { pcmToWav, pcmToMp3 } from '@/lib/audio';
-
-const ai = new GoogleGenAI({
-  apiKey: process.env.GEMINI_API_KEY,
-  httpOptions: {
-    headers: {
-      'User-Agent': 'aistudio-build',
-    },
-  },
-});
+import { getGeminiClient } from '@/lib/gemini';
 
 export interface VoiceoverTarget {
   id: string;
@@ -39,6 +31,7 @@ const VOICE_MAPPING: Record<string, { male: string; female: string }> = {
 
 // Helper function with exponential backoff for stable high-quality TTS generation
 async function generateTTSWithRetry(
+  ai: GoogleGenAI,
   text: string,
   voiceName: string,
   retries = 2
@@ -66,12 +59,17 @@ async function generateTTSWithRetry(
         const mp3Url = pcmToMp3(rawBase64, 24000, 1, 128);
         return { wavUrl, mp3Url };
       }
-    } catch (err) {
+    } catch (err: any) {
       console.warn(`TTS attempt ${attempt + 1} failed for voice ${voiceName}:`, err);
+      const isRateLimit = err?.toString().includes('429') || err?.toString().includes('RESOURCE_EXHAUSTED') || err?.message?.includes('limit');
+      if (isRateLimit) {
+        console.log(`Rate limit (429) detected! Waiting 8.5 seconds before retrying...`);
+        await new Promise((res) => setTimeout(res, 8500));
+      }
     }
     attempt++;
     if (attempt <= retries) {
-      await new Promise((res) => setTimeout(res, 500 * attempt));
+      await new Promise((res) => setTimeout(res, 1200 * attempt));
     }
   }
   return { wavUrl: '', mp3Url: '' };
@@ -99,6 +97,8 @@ export async function POST(req: NextRequest) {
     }
 
     // Step 1: Adapt/Translate the text script into all selected target languages/dialects
+    const ai = getGeminiClient(req);
+
     const prompt = `
 You are an award-winning Moroccan & international voiceover director & advertising copywriter specializing in regional Moroccan dialects (الدارجات والأساليب المغربية الأصيلة) and international languages.
 
@@ -194,8 +194,9 @@ For each target language/dialect, return a JSON object containing:
       return NextResponse.json({ error: 'فشل في تحليل النص المترجم' }, { status: 500 });
     }
 
-    // Step 2: Generate High-Res Audio for each adapted dialect script
-    const audioPromises = translationsData.map(async (item: any) => {
+    // Step 2: Generate High-Res Audio for each adapted dialect script sequentially to prevent rate limits
+    const resolvedResults = [];
+    for (const item of translationsData) {
       const defaultVoiceConfig = VOICE_MAPPING[item.langId] || { male: 'Kore', female: 'Zephyr' };
       const voiceName = customVoice || (voiceGender === 'female' ? defaultVoiceConfig.female : defaultVoiceConfig.male);
 
@@ -223,9 +224,9 @@ For each target language/dialect, return a JSON object containing:
       }
 
       const fullTextToSpeak = `${ttsInstruction}${item.script}`;
-      const { wavUrl, mp3Url } = await generateTTSWithRetry(fullTextToSpeak, voiceName, 2);
+      const { wavUrl, mp3Url } = await generateTTSWithRetry(ai, fullTextToSpeak, voiceName, 2);
 
-      return {
+      resolvedResults.push({
         id: item.langId,
         nameAr: item.langNameAr,
         nameEn: item.langId,
@@ -236,10 +237,11 @@ For each target language/dialect, return a JSON object containing:
         mp3Url: mp3Url || wavUrl,
         durationEstSec: item.durationEstSec || Math.ceil(item.script.split(' ').length / 2.5),
         voiceName: voiceName,
-      };
-    });
+      });
 
-    const resolvedResults = await Promise.all(audioPromises);
+      // Brief spacer delay between successive requests to prevent API burst limits
+      await new Promise((res) => setTimeout(res, 1200));
+    }
 
     return NextResponse.json({
       success: true,

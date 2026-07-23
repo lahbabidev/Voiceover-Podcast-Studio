@@ -19,6 +19,10 @@ import {
   Users,
   Settings,
   HelpCircle,
+  Key,
+  Eye,
+  EyeOff,
+  Lock,
 } from 'lucide-react';
 
 import { AudioPlayerCard, VoiceoverTarget } from '@/components/AudioPlayerCard';
@@ -35,6 +39,38 @@ import { saveCampaignToHistory, SavedCampaign } from '@/lib/storage';
 import { wavToMp3DataUrl } from '@/lib/audio';
 
 export default function VoiceoverPodcastStudio() {
+  // User Custom Gemini API Key State
+  const [customKeyInput, setCustomKeyInput] = useState('');
+  const [isKeySaved, setIsKeySaved] = useState(false);
+  const [showKeyConfig, setShowKeyConfig] = useState(false);
+  const [showKeyText, setShowKeyText] = useState(false);
+
+  useEffect(() => {
+    const saved = localStorage.getItem('custom_gemini_api_key');
+    if (saved) {
+      setTimeout(() => {
+        setCustomKeyInput(saved);
+        setIsKeySaved(true);
+      }, 0);
+    }
+  }, []);
+
+  const handleSaveApiKey = () => {
+    const trimmed = customKeyInput.trim();
+    if (trimmed) {
+      localStorage.setItem('custom_gemini_api_key', trimmed);
+      setIsKeySaved(true);
+    } else {
+      handleClearApiKey();
+    }
+  };
+
+  const handleClearApiKey = () => {
+    localStorage.removeItem('custom_gemini_api_key');
+    setCustomKeyInput('');
+    setIsKeySaved(false);
+  };
+
   // Main Script & Options State
   const [sourceScript, setSourceScript] = useState(
     'استمتع بأقوى العروض والتخفيضات اليوم! خصم استثنائي يصل إلى 50% على جميع المنتجات مع توصيل مجاني وسريع حتى باب دارك. لا تفوّت الفرصة واطلب الآن قبل نفاد الكمية!'
@@ -174,9 +210,15 @@ export default function VoiceoverPodcastStudio() {
     if (!sourceScript.trim()) return;
     setIsEnhancingScript(true);
     try {
+      const customKey = typeof window !== 'undefined' ? localStorage.getItem('custom_gemini_api_key') : null;
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (customKey) {
+        headers['x-gemini-api-key'] = customKey;
+      }
+
       const res = await fetch('/api/enhance-script', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify({
           script: sourceScript,
           tone,
@@ -206,9 +248,15 @@ export default function VoiceoverPodcastStudio() {
     setResults([]);
 
     try {
+      const customKey = typeof window !== 'undefined' ? localStorage.getItem('custom_gemini_api_key') : null;
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (customKey) {
+        headers['x-gemini-api-key'] = customKey;
+      }
+
       const res = await fetch('/api/batch-voiceover', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify({
           sourceScript,
           targetLangs: selectedLangs,
@@ -245,9 +293,15 @@ export default function VoiceoverPodcastStudio() {
   const handleUpdateScriptAndRegenerate = async (id: string, newScript: string) => {
     setRegeneratingId(id);
     try {
+      const customKey = typeof window !== 'undefined' ? localStorage.getItem('custom_gemini_api_key') : null;
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (customKey) {
+        headers['x-gemini-api-key'] = customKey;
+      }
+
       const res = await fetch('/api/batch-voiceover', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify({
           sourceScript: newScript,
           targetLangs: [id],
@@ -328,6 +382,105 @@ export default function VoiceoverPodcastStudio() {
           </div>
         </div>
       </header>
+
+      {/* User Custom API Key Control Banner */}
+      <div className="bg-slate-900/40 border-b border-slate-800/60 py-3.5 px-4 sm:px-6">
+        <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${isKeySaved ? 'bg-emerald-500/10 text-emerald-400' : 'bg-slate-800 text-slate-400'}`}>
+              <Key className="w-4 h-4" />
+            </div>
+            <div className="text-right">
+              <div className="text-xs font-bold text-slate-200 flex items-center gap-2">
+                <span>تخصيص مفتاح Gemini API الشخصي (موصى به لتجنب حدود الحصة)</span>
+                {isKeySaved ? (
+                  <span className="text-[10px] bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-2 py-0.5 rounded font-bold">
+                    مفعل ومستخدم حالياً
+                  </span>
+                ) : (
+                  <span className="text-[10px] bg-amber-500/10 text-amber-400 border border-amber-500/20 px-2 py-0.5 rounded font-bold">
+                    الحساب المجاني العام (قد يواجه قيوداً)
+                  </span>
+                )}
+              </div>
+              <p className="text-[11px] text-slate-400 mt-0.5">
+                توليد مقاطع إعلانية بلا حدود عبر إدخال مفتاح API المجاني الخاص بك من Google AI Studio.
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2 w-full md:w-auto shrink-0 justify-end">
+            <button
+              onClick={() => setShowKeyConfig(!showKeyConfig)}
+              className="text-xs font-bold text-slate-300 hover:text-slate-100 bg-slate-800 hover:bg-slate-700 px-3 py-2 rounded-xl border border-slate-700/80 transition flex items-center gap-1.5"
+            >
+              <Settings className="w-3.5 h-3.5" />
+              <span>{showKeyConfig ? 'إغلاق الإعدادات' : 'إعداد مفتاح الـ API'}</span>
+            </button>
+          </div>
+        </div>
+
+        {showKeyConfig && (
+          <div className="max-w-7xl mx-auto mt-4 p-4 bg-slate-950 border border-slate-800 rounded-2xl shadow-inner space-y-3.5 animate-fadeIn">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 border-b border-slate-900 pb-3">
+              <span className="text-xs font-bold text-slate-300 flex items-center gap-1.5">
+                <Lock className="w-3.5 h-3.5 text-amber-500" />
+                أدخل مفتاح API الخاص بك (Gemini API Key) الذي يبدأ بـ AIza:
+              </span>
+              <a
+                href="https://aistudio.google.com/app/apikey"
+                target="_blank"
+                rel="noreferrer"
+                className="text-[11px] text-amber-400 hover:underline flex items-center gap-1"
+              >
+                <span>احصل على مفتاح مجاني من Google AI Studio ↗</span>
+              </a>
+            </div>
+
+            <div className="flex items-center gap-2.5 max-w-2xl flex-wrap sm:flex-nowrap">
+              <div className="relative flex-1 min-w-[200px] w-full">
+                <input
+                  type={showKeyText ? 'text' : 'password'}
+                  value={customKeyInput}
+                  onChange={(e) => setCustomKeyInput(e.target.value)}
+                  placeholder="AIzaSy..."
+                  className="w-full bg-slate-900 border border-slate-800/80 rounded-xl py-2 px-3 pl-10 text-xs text-slate-200 placeholder-slate-600 focus:outline-none focus:ring-1 focus:ring-amber-500 font-mono"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowKeyText(!showKeyText)}
+                  className="absolute left-3 top-2.5 text-slate-500 hover:text-slate-300"
+                  title={showKeyText ? 'إخفاء' : 'عرض'}
+                >
+                  {showKeyText ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                </button>
+              </div>
+
+              <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
+                <button
+                  onClick={handleSaveApiKey}
+                  className="bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs py-2 px-4 rounded-xl transition whitespace-nowrap"
+                >
+                  حفظ المفتاح
+                </button>
+
+                {isKeySaved && (
+                  <button
+                    onClick={handleClearApiKey}
+                    className="bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/30 font-bold text-xs py-2 px-4 rounded-xl transition whitespace-nowrap"
+                  >
+                    حذف المفتاح
+                  </button>
+                )}
+              </div>
+            </div>
+
+            <p className="text-[10px] text-slate-500 leading-relaxed">
+              * يتم تخزين هذا المفتاح محلياً بشكل آمن تماماً في متصفحك (localStorage) ولا يُحفظ في خوادمنا أبداً. يتم إرساله فقط كرأس مصادقة آمن إلى واجهة برمجة تطبيقات Gemini لتوليد أصواتك.
+            </p>
+          </div>
+        )}
+      </div>
 
       {/* Main Content Body */}
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 py-8 space-y-8">

@@ -1,15 +1,7 @@
-import { GoogleGenAI, Modality, Type } from '@google/genai';
+import { Modality } from '@google/genai';
 import { NextRequest, NextResponse } from 'next/server';
 import { pcmToWav } from '@/lib/audio';
-
-const ai = new GoogleGenAI({
-  apiKey: process.env.GEMINI_API_KEY,
-  httpOptions: {
-    headers: {
-      'User-Agent': 'aistudio-build',
-    },
-  },
-});
+import { getGeminiClient } from '@/lib/gemini';
 
 export async function POST(req: NextRequest) {
   try {
@@ -18,6 +10,8 @@ export async function POST(req: NextRequest) {
     if (!topic || typeof topic !== 'string') {
       return NextResponse.json({ error: 'الرجاء توفير موضوع البودكاست' }, { status: 400 });
     }
+
+    const ai = getGeminiClient(req);
 
     // Step 1: Generate dialogue script
     const prompt = `
@@ -77,12 +71,17 @@ Jane: [line]
           audioDataUrl = pcmToWav(rawBase64, 24000, 1, 16);
           break;
         }
-      } catch (e) {
+      } catch (e: any) {
         console.warn(`Multi-speaker TTS attempt ${attempts + 1} failed:`, e);
+        const isRateLimit = e?.toString().includes('429') || e?.toString().includes('RESOURCE_EXHAUSTED') || e?.message?.includes('limit');
+        if (isRateLimit) {
+          console.log(`Rate limit (429) detected in podcast generation! Waiting 8.5 seconds before retrying...`);
+          await new Promise((res) => setTimeout(res, 8500));
+        }
       }
       attempts++;
       if (attempts <= 2) {
-        await new Promise((res) => setTimeout(res, 600 * attempts));
+        await new Promise((res) => setTimeout(res, 1500 * attempts));
       }
     }
 

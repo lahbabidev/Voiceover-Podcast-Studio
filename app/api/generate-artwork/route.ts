@@ -1,14 +1,5 @@
-import { GoogleGenAI } from '@google/genai';
 import { NextRequest, NextResponse } from 'next/server';
-
-const ai = new GoogleGenAI({
-  apiKey: process.env.GEMINI_API_KEY,
-  httpOptions: {
-    headers: {
-      'User-Agent': 'aistudio-build',
-    },
-  },
-});
+import { getGeminiClient } from '@/lib/gemini';
 
 export async function POST(req: NextRequest) {
   try {
@@ -17,6 +8,8 @@ export async function POST(req: NextRequest) {
     if (!prompt || typeof prompt !== 'string') {
       return NextResponse.json({ error: 'الرجاء توفير وصف الصورة' }, { status: 400 });
     }
+
+    const ai = getGeminiClient(req);
 
     const enhancedPrompt = `High quality commercial product advertisement artwork, podcast cover banner, modern digital studio style: ${prompt}`;
 

@@ -26,9 +26,15 @@ export function ArtworkGeneratorModal({ isOpen, onClose, defaultPrompt = '' }: A
     setImageUrl('');
 
     try {
+      const customKey = typeof window !== 'undefined' ? localStorage.getItem('custom_gemini_api_key') : null;
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (customKey) {
+        headers['x-gemini-api-key'] = customKey;
+      }
+
       const res = await fetch('/api/generate-artwork', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify({ prompt, aspectRatio }),
       });
       const data = await res.json();

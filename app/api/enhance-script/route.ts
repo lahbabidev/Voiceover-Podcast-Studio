@@ -1,14 +1,5 @@
-import { GoogleGenAI } from '@google/genai';
 import { NextRequest, NextResponse } from 'next/server';
-
-const ai = new GoogleGenAI({
-  apiKey: process.env.GEMINI_API_KEY,
-  httpOptions: {
-    headers: {
-      'User-Agent': 'aistudio-build',
-    },
-  },
-});
+import { getGeminiClient } from '@/lib/gemini';
 
 export async function POST(req: NextRequest) {
   try {
@@ -17,6 +8,8 @@ export async function POST(req: NextRequest) {
     if (!script || typeof script !== 'string' || !script.trim()) {
       return NextResponse.json({ error: 'الرجاء توفير النص' }, { status: 400 });
     }
+
+    const ai = getGeminiClient(req);
 
     const prompt = `
 You are an elite voiceover direction & speech synthesis expert.
@@ -39,6 +32,7 @@ Return ONLY the enhanced vocalized text. Do not add markdown commentary around i
       model: 'gemini-3.6-flash',
       contents: prompt,
     });
+
 
     const enhancedScript = response.text?.trim() || script;
 
